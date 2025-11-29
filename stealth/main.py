@@ -1,35 +1,40 @@
 # main.py
 import time
-import hardware   # hardware.py (Stub 포함됨)
-import stock_api  # stock_api.py (그대로 사용)
+from hardware.hardware import hardware as hw
+from stock.stock_api import stock as stock_api
+from settings.wlan.wlan import connectivity as conn
 
 # --- 설정 ---
 TARGET_CODE = "KRW-BTC"
 CHECK_INTERVAL = 10       # 테스트니까 10초로 짧게!
 
 # --- 1. 시작 준비 ---
-stock_api.connect_wifi()
+wlan = conn()
+wlan.connect_wifi()
+
+hardware = hw()
 hardware.display_init()   # 디스플레이 켜기 (Stub)
 hardware.alert_vibration()
 
-print("=== 오피스 스텔스 작전 V2 (Display Stub) ===")
+stock = stock_api()
+print("=== Stealth V2 (Display Stub) ===")
 
 last_check_time = 0
 prev_price = None # 전 가격 저장용 변수
 
-# --- 2. 무한 루프 ---
+    # --- 2. 무한 루프 ---
 while True:
     # [감시] 상사 감지
-    if hardware.is_boss_detected():
-        hardware.display_clear() # 화면 끄기 (Stub 호출)
+    # if hardware.is_boss_detected():
+    #     hardware.display_clear() # 화면 끄기 (Stub 호출)
         
-        while hardware.is_boss_detected():
-            time.sleep(0.5)
+    #     while hardware.is_boss_detected():
+    #         time.sleep(0.5)
         
-        print("✅ 상황 종료. 화면 복구.")
-        hardware.display_show_msg("Safe.. Loading..") # 복구 메시지
-        time.sleep(2)
-        continue
+    #     print("✅ end recover to normal operation")
+    #     hardware.display_show_msg("Safe.. Loading..") # 복구 메시지
+    #     time.sleep(2)
+    #     continue
 
     # [주식] 가격 확인
     current_time = time.time()
@@ -37,7 +42,7 @@ while True:
         hardware.blink_led()
         
         # 가격 가져오기
-        curr_price = stock_api.get_price(TARGET_CODE)
+        curr_price = stock.get_price(TARGET_CODE)
         
         if curr_price:
             # 색상 결정 로직 (전 가격과 비교)
