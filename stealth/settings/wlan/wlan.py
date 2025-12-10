@@ -1,6 +1,7 @@
 import network
 import time
 import json
+import uasyncio
 
 class connectivity :
     def __init__(self):
@@ -18,7 +19,7 @@ class connectivity :
             print(f"Failed to load authentication.json: {e}")
             return "none","none"
 
-    def connect_wifi(self, max_retries=5, per_attempt_timeout=10, retry_delay=2):
+    async def connect_wifi(self, max_retries=5, per_attempt_timeout=10, retry_delay=2):
         """와이파이 연결 (재시도 및 타임아웃 처리)
         Returns True on success, False on failure.
         """
@@ -48,7 +49,7 @@ class connectivity :
                 if wlan.isconnected():
                     print("\nconnection successful!")
                     return True
-                time.sleep(1)
+                await uasyncio.sleep(1)
                 print(".", end="")
 
             print("\nTimeout not connected.")
@@ -60,9 +61,8 @@ class connectivity :
             except Exception:
                 pass
             wlan.active(False)
-            time.sleep(retry_delay)
+            await uasyncio.sleep(retry_delay)
             wlan.active(True)
 
         print("fail to reconnect .")
         return False
-    
