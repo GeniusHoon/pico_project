@@ -10,7 +10,7 @@ class connectivity :
     def getSessionFromJson(self) :
         # Load credentials from json
         try:
-            with open('credentials.json', 'r') as f:
+            with open('/settings/wlan/credentials.json', 'r') as f:
                 auth_data = json.load(f)
                 ssid = auth_data['ssid']
                 password = auth_data['password']
