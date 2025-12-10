@@ -1,18 +1,22 @@
 # hardware.py
 from machine import Pin, PWM, I2C
 import time
-import hardware.lcd.lcd as I2cLcd  # 방금 만든 라이브러리 불러오기
+from hardware.lcd.lcd_api import LcdApi
+from hardware.lcd.pico_i2c_lcd import I2cLcd
 
 
 # --- 핀 설정 ---
 RADAR_PIN = 16
 BUZZER_PIN = 15
 # I2C 핀 (SDA: GP0, SCL: GP1)
-I2C_SDA = 0
-I2C_SCL = 1
+I2C_SDA = 26
+I2C_SCL = 27
+I2C_ADDR = 0x27  # LCD I2C 주소 (보통 0x27 또는 0x3F)
+I2C_NUM_ROWS = 2
+I2C_NUM_COLS = 16
 
 class hardware :
-    def __init__(self, radar_pin=RADAR_PIN, buzzer_pin=BUZZER_PIN):
+    def __init__(self, radar_pin=RADAR_PIN, buzzer_pin=BUZZER_PIN, i2c_addr=I2C_ADDR):
         # --- 부품 초기화 ---
         self.radar = Pin(radar_pin, Pin.IN)
         self.buzzer = PWM(Pin(buzzer_pin))
@@ -23,7 +27,9 @@ class hardware :
         # i2c = I2C(0, sda=Pin(I2C_SDA), scl=Pin(I2C_SCL), freq=400000)
         # 16글자 2줄짜리 LCD 객체 생성
         try:
-            self.lcd = I2cLcd.lcd(0x27)
+            self.i2c = I2C(0, sda=Pin(0), scl=Pin(1), freq=400000)
+            self.lcd = I2cLcd(self.i2c, i2c_addr, I2C_NUM_ROWS, I2C_NUM_COLS)    
+            self.lcd.putstr("It Works!")
         except:
             print("LCD 연결 실패! 주소(0x27/0x3F)나 배선을 확인하세요.")
             self.lcd = None
@@ -58,7 +64,7 @@ class hardware :
             self.lcd.clear()
             # 아무것도 안 띄우면 백라이트만 켜져 있어서 더 수상할 수 있음
             # 차라리 가짜 에러 메시지나 지루한 텍스트 추천
-            self.lcd.print("Updating...")
+            self.lcd.putstr("Updating...")
 
     def display_show_price(self, code, price, color):
         """
@@ -79,15 +85,15 @@ class hardware :
         self.lcd.clear()
         
         # 첫째 줄: 종목명 (예: BTC/KRW)
-        self.lcd.setCursor(0, 0)
-        self.lcd.print(code[:16]) # 16자 넘으면 자름
+        self.lcd.move_to(0, 0)
+        self.lcd.putstr(code[:16]) # 16자 넘으면 자름
         
         # 둘째 줄: 가격 및 화살표 (예: 98,000,000 ^)
-        self.lcd.setCursor(0, 1)
-        self.lcd.print(f"{price_str} {arrow}")
+        self.lcd.move_to(0, 1)
+        self.lcd.putstr(f"{price_str} {arrow}")
         
     def display_show_msg(self, text):
         if self.lcd:
             self.lcd.clear()
-            self.lcd.setCursor(0, 0)
-            self.lcd.print(text[:16])
+            self.lcd.move_to(0, 0)
+            self.lcd.putstr(text[:16])
