@@ -1,16 +1,32 @@
 import uasyncio
 import json
-import urequests
 
 class stock:
     async def get_price(self, code):
         """업비트에서 현재 가격 가져오기"""
+        host = "api.upbit.com"
+        path = f"/v1/ticker?markets={code}"
+
         try:
-            # 예외 처리를 여기서 해서 main 코드가 안 멈추게 함
-            url = f"https://api.upbit.com/v1/ticker?markets={code}"
-            res = urequests.get(url)
-            data = res.json()
-            res.close()
+            # urequests 대신 uasyncio를 사용하여 비동기 HTTP 요청 수행
+            reader, writer = await uasyncio.open_connection(host, 443, ssl=True)
+            
+            request = f"GET {path} HTTP/1.0\r\nHost: {host}\r\nUser-Agent: Pico\r\n\r\n"
+            writer.write(request.encode())
+            await writer.drain()
+
+            # 헤더 스킵
+            while True:
+                line = await reader.readline()
+                if not line or line == b'\r\n':
+                    break
+
+            response = await reader.read()
+            data = json.loads(response)
+            
+            writer.close()
+            await writer.wait_closed()
+
             print(data[0]['trade_price'])
             return data[0]['trade_price']
         except Exception as e:

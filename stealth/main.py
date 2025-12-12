@@ -5,12 +5,16 @@ from hardware.hardware import hardware as hw
 from stock.stock_api import stock as stock_api
 from settings.wlan.wlan import connectivity as conn
 from machine import Pin
+
+from settings.bluetooth.ble import BLEPeripheral
+
 # --- 설정 ---
 TARGET_CODE = "KRW-BTC"
-CHECK_INTERVAL = 10       # 테스트니까 10초로 짧게!
+CHECK_INTERVAL = 5       # 테스트니까 10초로 짧게!
 
 wlan = conn()
 wlan.connect_wifi()
+ble = BLEPeripheral("PicoVibe")  # BLE 주변 장치 인스턴스 생성
 
 hardware = hw()
 hardware.display_init()   # 디스플레이 켜기 (Stub)
@@ -26,22 +30,18 @@ async def stock_loop():
     global prev_price
     global is_boss_detected
     global last_check_time
-    
+    global ble
+
     while True:
         # [감시] 상사 감지
-        print("stock loop running")
         if is_boss_detected :
-            hardware.display_clear() # 화면 끄기 (Stub 호출)
-            
-            print("✅ end recover to normal operation")
-            hardware.display_show_msg("Safe.. Loading..") # 복구 메시지
-            await uasyncio.sleep(2)
+            await uasyncio.sleep(0.05)
             continue
 
         # [주식] 가격 확인
         current_time = time.time()
         if current_time - last_check_time > CHECK_INTERVAL:
-            hardware.blink_led()
+            await hardware.blink_led()
             
             # 가격 가져오기
             curr_price = await stock.get_price(TARGET_CODE)
@@ -69,17 +69,65 @@ async def stock_loop():
 
         await uasyncio.sleep(0.1)
 
+
+def smoothing(data, window_size=3):
+    """간단한 이동 평균 스무딩 함수"""
+    # data를 window size만큼 나누
+    if len(data) < window_size:
+        return sum(data) / len(data)  # 데이터가 적으면 그냥 평균 반환
+    return sum(data[-window_size:]) / window_size
+
+# want to make code that measures distance continuously and updates is_boss_detected
+# if distance < threshold, is_boss_detected = True else False
+# prevent flickering by smoothing
 async def boss_loop() :
     global is_boss_detected
+    distances = []
+    count_thd = 15 # 0.05 * 20 = 1 second
+    count = 0
+    dist_thd = 100 # cm
+
     while True :
         dist = await hardware.get_boss_distance()
-        print(dist)
-        if dist > 0 and dist < 30 :
-            is_boss_detected = True
-        else :
-            is_boss_detected = False
 
-        await uasyncio.sleep(0.1)
+        if dist < 0 :
+            continue # measurement failed skip
+
+        distances.append(dist)
+
+        if len(distances) > 5 :
+            distances.pop(0)
+        avg_dist = smoothing(distances, window_size=10)
+
+        print(f"Avg Distance: {avg_dist} cur dist : {dist} count: {count} state: {is_boss_detected}")
+
+        if is_boss_detected :
+            if avg_dist > dist_thd :
+                count += 1
+                if count >= count_thd :
+                    is_boss_detected = False
+                    hardware.display_show_msg("Safe.. Loading..") # 복구 메시지
+                    print("✅ Boss Gone. Recovering to normal operation.")
+                    count = 0
+            else :
+                count = 0
+        else :
+            if avg_dist < dist_thd :
+                count += 1
+                if count >= count_thd :
+                    is_boss_detected = True
+                    print("⚠️ Boss Detected! Entering stealth mode.")
+                    hardware.display_clear() # 화면 끄기 (Stub 호출)
+                    try:
+                        if ble.is_connected():
+                            await ble.notify_message("Boss Detected!") # BLE 알림
+                    except Exception as e:
+                        print(f"BLE Notify Error: {e}")
+                    count = 0
+            else :
+                count = 0
+
+        await uasyncio.sleep(0.05)
 
 if __name__ == '__main__':
     uasyncio.create_task(stock_loop())

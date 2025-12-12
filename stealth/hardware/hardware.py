@@ -4,6 +4,7 @@ import time
 from hardware.lcd import LcdApi
 from hardware.lcd.pico_i2c_lcd import I2cLcd
 from hardware.ultrasound.ultrasound import ultrasound
+import uasyncio
 
 # --- 핀 정의 (사용자가 연결한 핀 번호로 변경) ---
 TRIG_PIN = 14
@@ -41,11 +42,10 @@ class hardware :
     def alert_vibration(self):
         print("alert temp")
 
-    def blink_led(self):
-        self.led.on()
-        time.sleep(0.1)
-        self.led.off()
-        
+    async def blink_led(self):
+        self.led.toggle()
+        await uasyncio.sleep(0.005)
+
     # LCD #####################################    
     def display_init(self):
         if self.lcd:
